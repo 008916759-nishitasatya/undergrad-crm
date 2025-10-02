@@ -1,36 +1,209 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Undergrad CRM (Next.js + Firebase + Firestore)
 
-## Getting Started
+### A lightweight internal CRM to track prospective undergrads, log communications, add notes, and (optionally) send follow-up emails automatically.
 
-First, run the development server:
+### Built with Next.js 15 (App Router, TypeScript), Firebase Auth + Firestore, Tailwind CSS, and a simple cron endpoint for overdue follow-ups. Email can be logged locally (mock) or sent for real via Customer.io.
 
-```bash
+#### Features
+
+- Auth (email/password) with Firebase.
+
+- Dashboard with quick stats.
+
+- Students list with search + quick filters:
+
+- Not contacted in 7 days
+
+- High intent
+
+- Needs essay help
+
+- Student profile
+
+- Progress stage (Exploring → Shortlisting → Applying → Submitted)
+
+- Log communications (call/email/sms)
+
+- Internal notes
+
+- Interaction timeline
+
+- “Trigger follow-up” button (mock or real)
+- Opt-out flag: Disable auto follow-ups
+
+- Tasks page (basic live route)
+
+- Auto follow-up cron (/api/cron/send-overdue-followups)
+
+- Sends a follow-up to students inactive for ≥7 days (throttled)
+
+- Respects autoFollowupDisabled
+
+- Logs each send to students/{id}/communications
+
+#### Tech Stack
+
+- Next.js 15, TypeScript, App Router
+
+- Tailwind CSS
+
+- Firebase Auth & Cloud Firestore
+
+- Customer.io Transactional Email
+
+
+### Getting Started
+1) Clone & install
+''' bash
+git clone https://github.com/008916759-nishitasatya/undergrad-crm.git
+'''
+'''bash
+cd undergrad-crm
+'''
+''' bash
+npm install
+'''
+3) Env vars
+
+Create .env.local (this file is ignored; do not commit secrets):
+
+# --- Firebase (Web SDK) ---
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+
+# Protect the cron endpoint (used as Bearer token)
+CRON_SECRET=dev-secret-123
+
+# --- Optional: Customer.io (for real email) ---
+CUSTOMERIO_SITE_ID=            # Track API (Basic)
+CUSTOMERIO_API_KEY=
+CUSTOMERIO_TX_API_KEY=         # Transactional API (Bearer)
+CUSTOMERIO_TRANSACTIONAL_MESSAGE_ID=tm_xxxxxxxxxx
+CUSTOMERIO_FROM_EMAIL=no-reply@undergraduation.com
+
+
+A committed template lives at .env.local.example.
+
+3) Firebase setup
+
+Auth → Sign-in method → Email/Password: Enable.
+
+Firestore → Create database (Production mode).
+
+Rules (basic dev rule; tighten for production):
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+4) Run the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+# http://localhost:3000
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a staff user via Firebase Auth or sign up if you kept signup enabled.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Firestore Data Model (minimum)
+students (collection)
+  {studentId} (doc)
+    name: string
+    email: string
+    country?: string
+    grade?: string
+    status: "Exploring" | "Shortlisting" | "Applying" | "Submitted"
+    tags?: string[]               # e.g. ["highIntent", "needsEssayHelp"]
+    lastActive?: number           # ms epoch
+    lastFollowupSentAt?: number   # ms epoch
+    autoFollowupDisabled?: boolean
+    updatedAt?: number
 
-## Learn More
+  {studentId}/communications (subcollection)
+    {commId}
+      channel: "email" | "sms" | "call"
+      body: string
+      subject?: string
+      ts: number
+      author: "staff" | "system"
+      type?: "auto-followup" | "manual"
+      provider?: "customerio"
+      providerDeliveryId?: string
+      status?: "queued" | "delivered" | "bounced" | ...
 
-To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Add docs manually in the Firebase Console or build your own seed routine.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Using the App
 
-## Deploy on Vercel
+/login — sign in with your staff account.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+/dashboard — quick stats (counts by stage).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+/students — search, quick filters, and a “Run auto-followups now” button that:
+
+Scans all students
+
+Skips recently contacted + opted out
+
+Logs a mock email (or sends a real one if Customer.io is enabled)
+
+/students/[id] — profile page
+
+Change stage
+
+Log comms (call/email/sms)
+
+Add internal notes
+
+Trigger follow-up (mock) button
+
+Auto Follow-Ups (cron)
+
+Endpoint: GET /api/cron/send-overdue-followups
+
+Only runs if Authorization: Bearer <CRON_SECRET> matches your env.
+
+Picks students with lastActive <= now - 7d.
+
+Throttled: if lastFollowupSentAt > now - 7d → skip.
+
+Respects autoFollowupDisabled.
+
+Local test:
+
+curl -H "authorization: Bearer dev-secret-123" \
+  http://localhost:3000/api/cron/send-overdue-followups
+
+
+Vercel cron example:
+
+Add a scheduled job calling your URL with Authorization: Bearer $CRON_SECRET.
+
+Set all env vars in the Vercel project.
+
+Email: Mock vs Customer.io (real)
+Mock (default)
+
+Both the profile “Trigger follow-up” and the cron simply write a Communication log in Firestore. No real email is sent—perfect for dev and demos.
+
+Real with Customer.io (optional)
+
+In Customer.io:
+
+Verify a sending domain (SPF/DKIM).
+
+Create a Transactional Message and note its transactional_message_id.
+
+Create API credentials:
+
+Track API (SITE_ID + API_KEY, Basic auth)
+
+Transactional API (TX_API_KEY, Bearer)
