@@ -54,35 +54,42 @@
 
 ### Getting Started
 1) Clone & install
-''' bash
+```bash
 git clone https://github.com/008916759-nishitasatya/undergrad-crm.git
-'''
-'''bash
+```
+```bash
 cd undergrad-crm
-'''
-''' bash
+```
+```bash
 npm install
-'''
+```
 3) Env vars
 
-Create .env.local (this file is ignored; do not commit secrets):
+- Create .env.local (this file is ignored; do not commit secrets):
 
-# --- Firebase (Web SDK) ---
+#### Firebase (Web SDK) 
 NEXT_PUBLIC_FIREBASE_API_KEY=...
+
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 
-# Protect the cron endpoint (used as Bearer token)
-CRON_SECRET=dev-secret-123
 
-# --- Optional: Customer.io (for real email) ---
+#### Customer.io (for real email)
 CUSTOMERIO_SITE_ID=            # Track API (Basic)
+
 CUSTOMERIO_API_KEY=
+
 CUSTOMERIO_TX_API_KEY=         # Transactional API (Bearer)
+
 CUSTOMERIO_TRANSACTIONAL_MESSAGE_ID=tm_xxxxxxxxxx
+
 CUSTOMERIO_FROM_EMAIL=no-reply@undergraduation.com
 
 
@@ -107,12 +114,13 @@ service cloud.firestore {
 
 4) Run the dev server
 npm run dev
-# http://localhost:3000
+- http://localhost:3000
 
 
-Create a staff user via Firebase Auth or sign up if you kept signup enabled.
+#### Create a staff user via Firebase Auth or sign up if you kept signup enabled.
 
 Firestore Data Model (minimum)
+```bash
 students (collection)
   {studentId} (doc)
     name: string
@@ -137,9 +145,9 @@ students (collection)
       provider?: "customerio"
       providerDeliveryId?: string
       status?: "queued" | "delivered" | "bounced" | ...
+```
 
-
-Add docs manually in the Firebase Console or build your own seed routine.
+#### Add docs manually in the Firebase Console or build your own seed routine.
 
 Using the App
 
@@ -175,35 +183,5 @@ Picks students with lastActive <= now - 7d.
 
 Throttled: if lastFollowupSentAt > now - 7d → skip.
 
-Respects autoFollowupDisabled.
-
-Local test:
-
-curl -H "authorization: Bearer dev-secret-123" \
-  http://localhost:3000/api/cron/send-overdue-followups
 
 
-Vercel cron example:
-
-Add a scheduled job calling your URL with Authorization: Bearer $CRON_SECRET.
-
-Set all env vars in the Vercel project.
-
-Email: Mock vs Customer.io (real)
-Mock (default)
-
-Both the profile “Trigger follow-up” and the cron simply write a Communication log in Firestore. No real email is sent—perfect for dev and demos.
-
-Real with Customer.io (optional)
-
-In Customer.io:
-
-Verify a sending domain (SPF/DKIM).
-
-Create a Transactional Message and note its transactional_message_id.
-
-Create API credentials:
-
-Track API (SITE_ID + API_KEY, Basic auth)
-
-Transactional API (TX_API_KEY, Bearer)
