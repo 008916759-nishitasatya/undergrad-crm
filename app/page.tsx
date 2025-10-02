@@ -1,4 +1,4 @@
-import Image from "next/image";
+/*import Image from "next/image";
 
 export default function Home() {
   return (
@@ -100,4 +100,28 @@ export default function Home() {
       </footer>
     </div>
   );
+}
+*/
+
+// app/page.tsx (server component)
+/*import { redirect } from 'next/navigation';
+
+export default function Home() {
+  redirect('/dashboard');
+}
+*/
+
+// app/page.tsx (client component)
+'use client'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+
+export default function Home() {
+  const router = useRouter()
+  useEffect(() =>
+    onAuthStateChanged(auth, u => router.replace(u ? '/dashboard' : '/login'))
+  , [router])
+  return <div className="p-6">Loading…</div>
 }
